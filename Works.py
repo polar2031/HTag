@@ -32,7 +32,7 @@ class Document:
             raise Exception
 
     def move_to_dir(self, new_path, overwrite=False):
-        # check if new path exists
+        # check if document exists at new path
         if os.path.exists(new_path + self.full_name):
             if overwrite:
                 # move old file/directory to trash can
@@ -40,7 +40,7 @@ class Document:
                 send2trash.send2trash(new_path + self.full_name)
             else:
                 raise PathAlreadyExistException
-        # !!shutil.move can't handle alias file in MacOS!!
+        # shutil.move can't handle alias file in MacOS!!
         if platform.system() == 'Darwin':
             status = subprocess.call('mv ' + self.path + ' ' + new_path, shell=True)
             if status != 0:

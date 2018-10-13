@@ -1,4 +1,5 @@
 import re
+# from sklearn import tree
 
 
 class Tag:
@@ -9,54 +10,61 @@ class Tag:
         _bracket_pairs_dictionary[_left_bracket[i]] = _right_bracket[i]
         _bracket_pairs_dictionary[_right_bracket[i]] = _left_bracket[i]
 
-    # separate file names into tag list
-    # tag example "(活動名)【譯者(譯者協力)+譯者協力】[作者(作者別名)]作品名(#集數)(原作)(雜誌號)[備註](備註)"
-    @staticmethod
-    def tag_separator(full_name):
-        bracket_stack = []
+    def __init__(self, tag_name):
+        self.name = Tag._remove_surrounded_bracket(tag_name)
+        self.bracket = Tag._get_surrounded_bracket(tag_name)
+        self.children = []
+        Tag._tag_separator(self)
 
-        tag_list = []
+    def __str__(self):
+        s = self.bracket + self.name
+        if self.children:
+            for ch in self.children:
+                s = s + '\n' + str(ch)
+        return s
+
+    # separate file names into tag list
+    # tag example "(活動名)【譯者(譯者協力)+譯者協力】[作者,作者(社團)]作品名(#集數)(原作)(雜誌號)[備註](備註)"
+    @staticmethod
+    def _tag_separator(tag):
+        bracket_stack = []
+        separated_tag_list = []
         temp = ""
-        for c in full_name:
+        for c in Tag._remove_surrounded_bracket(tag.name):
             if c in Tag._left_bracket:
-                if len(bracket_stack) == 0 and len(temp) > 0:
-                    tag_list.append(temp)
+                if not bracket_stack and len(temp) > 0:
+                    separated_tag_list.append(temp)
                     temp = ""
                 temp += c
                 bracket_stack.append(c)
             elif c in Tag._right_bracket:
                 # got unpaired right bracket
                 if (not bracket_stack) or bracket_stack.pop() != Tag._bracket_pairs_dictionary[c]:
-                    return []
+                    return
                 # all brackets are paired
                 elif not bracket_stack:
-                    tag_list.append(temp + c)
+                    separated_tag_list.append(temp + c)
                     temp = ""
                 else:
                     temp += c
+            elif not c.isalpha() and not bracket_stack:
+                if len(temp) > 0:
+                    separated_tag_list.append(temp)
+                    temp = ""
+                separated_tag_list.append(c)
             else:
                 temp += c
-
-        if len(bracket_stack) == 0:
-            for tag in tag_list:
-                if tag.isspace():
-                    tag_list.remove(tag)
-            return tag_list
-        else:
-            return []
+        if len(temp) > 0:
+            separated_tag_list.append(temp)
+        if len(bracket_stack) == 0 and len(separated_tag_list) > 1:
+            for s in separated_tag_list:
+                if not s.isspace():
+                    tag.children.append(Tag(s))
 
     # guess what is the tag's type
-    @staticmethod
-    def tag_classifier(tag_list, database):
-        table_list = []
-        tag_classify_dictionary = dict()
-        for tag in tag_list:
-            for table in table_list:
-                result = database.is_include(tag, table)
-                if result == 'unknown':
-                    tag_classify_dictionary[tag] = result
-            if tag in tag_classify_dictionary:
-                tag_classify_dictionary[tag] = 'unknown'
+    def tag_classifier(self, database):
+
+        # load pretraining data
 
         # decision tree
         # build a 2D array
@@ -66,18 +74,29 @@ class Tag:
         # shogugeki 0                   0                   0
         #
 
-        return tag_classify_dictionary
+        return
 
     @staticmethod
-    def _is_surrounded_by_bracket(tag, left_bracket, right_bracket):
-        return re.search(
-            re.escape(left_bracket) + r'.*' + re.escape(right_bracket),
-            tag
-        ) is not None
+    def _get_surrounded_bracket(tag):
+        if len(tag) > 1 and \
+                tag[0] in Tag._left_bracket and \
+                tag[-1] in Tag._right_bracket and \
+                Tag._bracket_pairs_dictionary[tag[0]] == tag[-1]:
+            return tag[0] + tag[-1]
+        else:
+            return ""
 
     @staticmethod
     def _remove_surrounded_bracket(tag):
-        while tag[0] in Tag._left_bracket and\
+        if len(tag) > 1 and \
+                tag[0] in Tag._left_bracket and \
+                tag[-1] in Tag._right_bracket and \
                 Tag._bracket_pairs_dictionary[tag[0]] == tag[-1]:
-            tag = tag[1:-1]
-        return tag
+            return tag[1:-1]
+        else:
+            return tag
+
+
+if __name__ == '__main__':
+    t = Tag('(活動名)【譯者(譯者協力)+譯者協力】[作者,作者(社團)]作品名')
+    print(t)

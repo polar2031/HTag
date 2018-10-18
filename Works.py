@@ -3,7 +3,6 @@ import shutil
 import platform
 import subprocess
 
-
 import send2trash
 
 
@@ -12,6 +11,10 @@ class PathAlreadyExistException(Exception):
 
 
 class PathNotExistException(Exception):
+    pass
+
+
+class SamePathException(Exception):
     pass
 
 
@@ -32,6 +35,9 @@ class Document:
             raise Exception
 
     def move_to_dir(self, new_path, overwrite=False):
+        # check if new_path is the same
+        if os.path.samefile(self.path, new_path + self.full_name):
+            raise SamePathException
         # check if document exists at new path
         if os.path.exists(new_path + self.full_name):
             if overwrite:
@@ -42,7 +48,8 @@ class Document:
                 raise PathAlreadyExistException
         # shutil.move can't handle alias file in MacOS!!
         if platform.system() == 'Darwin':
-            status = subprocess.call('mv ' + self.path + ' ' + new_path, shell=True)
+            status = subprocess.call('mv ' + '\"' + self.path + '\"' + ' ' +
+                                     '\"' + new_path + '\"', shell=True)
             if status != 0:
                 raise IOError
         else:
@@ -51,6 +58,8 @@ class Document:
 
 
 if __name__ == '__main__':
+    d = Document('未命名 檔案夾')
+    d.move_to_dir("./", overwrite=True)
     pass
 
 

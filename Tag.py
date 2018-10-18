@@ -2,6 +2,10 @@ import re
 # from sklearn import tree
 
 
+class SyntaxErrorException(Exception):
+    pass
+
+
 class Tag:
     _left_bracket = '([{<（【「『〖〈《＜〔［｛'
     _right_bracket = ')]}>）】」』〗〉》＞〕］｝'
@@ -14,7 +18,8 @@ class Tag:
         self.name = Tag._remove_surrounded_bracket(tag_name)
         self.bracket = Tag._get_surrounded_bracket(tag_name)
         self.children = []
-        Tag._tag_separator(self)
+        self.type = 'unknown'
+        self._tag_separator()
 
     def __str__(self):
         s = self.bracket + self.name
@@ -23,14 +28,16 @@ class Tag:
                 s = s + '\n' + str(ch)
         return s
 
-    # separate file names into tag list
-    # tag example "(活動名)【譯者(譯者協力)+譯者協力】[作者,作者(社團)]作品名(#集數)(原作)(雜誌號)[備註](備註)"
-    @staticmethod
-    def _tag_separator(tag):
+    # separate tag into child tag
+    # example (活動名)【譯者(譯者協力)+譯者協力】[作者,作者(社團)]
+    #           作品名(#集數)(原作)(雜誌號)[備註](備註)
+    # ["(活動名)", "【譯者(譯者協力)+譯者協力】", "[作者,作者(社團)]", "作品名",
+    # "(#集數)", "(原作)", "(雜誌號)", "[備註]", "(備註)"]
+    def _tag_separator(self):
         bracket_stack = []
         separated_tag_list = []
         temp = ""
-        for c in Tag._remove_surrounded_bracket(tag.name):
+        for c in Tag._remove_surrounded_bracket(self.name):
             if c in Tag._left_bracket:
                 if not bracket_stack and len(temp) > 0:
                     separated_tag_list.append(temp)
@@ -39,8 +46,9 @@ class Tag:
                 bracket_stack.append(c)
             elif c in Tag._right_bracket:
                 # got unpaired right bracket
-                if (not bracket_stack) or bracket_stack.pop() != Tag._bracket_pairs_dictionary[c]:
-                    return
+                if (not bracket_stack) or \
+                        bracket_stack.pop() != Tag._bracket_pairs_dictionary[c]:
+                    raise SyntaxErrorException
                 # all brackets are paired
                 elif not bracket_stack:
                     separated_tag_list.append(temp + c)
@@ -54,15 +62,18 @@ class Tag:
                 separated_tag_list.append(c)
             else:
                 temp += c
+        # found unpaired bracket
+        if bracket_stack:
+            raise SyntaxErrorException
         if len(temp) > 0:
             separated_tag_list.append(temp)
         if len(bracket_stack) == 0 and len(separated_tag_list) > 1:
             for s in separated_tag_list:
                 if not s.isspace():
-                    tag.children.append(Tag(s))
+                    self.children.append(Tag(s))
 
     # guess what is the tag's type
-    def tag_classifier(self, database):
+    # def tag_classifier(self, database):
 
         # load pretraining data
 
@@ -74,29 +85,37 @@ class Tag:
         # shogugeki 0                   0                   0
         #
 
-        return
+        # pass
 
     @staticmethod
-    def _get_surrounded_bracket(tag):
-        if len(tag) > 1 and \
-                tag[0] in Tag._left_bracket and \
-                tag[-1] in Tag._right_bracket and \
-                Tag._bracket_pairs_dictionary[tag[0]] == tag[-1]:
-            return tag[0] + tag[-1]
+    def tag_attribute_table_generator(self):
+
+        pass
+
+    @staticmethod
+    def _get_surrounded_bracket(tag_string):
+        if len(tag_string) > 1 and \
+                tag_string[0] in Tag._left_bracket and \
+                tag_string[-1] in Tag._right_bracket and \
+                Tag._bracket_pairs_dictionary[tag_string[0]] == tag_string[-1]:
+            return tag_string[0] + tag_string[-1]
         else:
             return ""
 
     @staticmethod
-    def _remove_surrounded_bracket(tag):
-        if len(tag) > 1 and \
-                tag[0] in Tag._left_bracket and \
-                tag[-1] in Tag._right_bracket and \
-                Tag._bracket_pairs_dictionary[tag[0]] == tag[-1]:
-            return tag[1:-1]
+    def _remove_surrounded_bracket(tag_string):
+        if len(tag_string) > 1 and \
+                tag_string[0] in Tag._left_bracket and \
+                tag_string[-1] in Tag._right_bracket and \
+                Tag._bracket_pairs_dictionary[tag_string[0]] == tag_string[-1]:
+            return tag_string[1:-1]
         else:
-            return tag
+            return tag_string
 
 
 if __name__ == '__main__':
-    t = Tag('(活動名)【譯者(譯者協力)+譯者協力】[作者,作者(社團)]作品名')
+    try:
+        t = Tag('(活動名)【譯者(譯者協力)+譯者協力】[作者,作者(社團)]作品名')
+    except SyntaxErrorException:
+        pass
     print(t)
